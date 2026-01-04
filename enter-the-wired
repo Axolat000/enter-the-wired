@@ -1,88 +1,106 @@
 #!/bin/bash
 set -euo pipefail
 
-# ENTER THE WIRED
-# "I am here. But where is here? And where is here within here?"
-
-# Combo script that installs both ACCELA and SLSsteam
-# Supports both local and curl | bash execution
+# ENTER THE WIRED – Combo Installer
+# ACCELA (ciscosweater) + SLSsteam (Axolat000 via git)
 
 GITHUB_USER="ciscosweater"
 GITHUB_REPO="enter-the-wired"
-SLSSTEAM_ZIP_URL="https://github.com/Axolat000/enter-the-wired/raw/refs/heads/main/SLSsteam-Any.zip"
 
-# Detect if running via curl | bash (BASH_SOURCE empty or BASH_SOURCE[0] == "-")
+SLS_REPO_URL="https://github.com/Axolat000/enter-the-wired"
+SLS_REPO_DIR="enter-the-wired"
+SLS_SUBDIR="SLSsteam-Any"
+
+# -------------------------------------------------
+# Detect curl | bash
+# -------------------------------------------------
 RUNNING_VIA_PIPE=false
-if [ -z "${BASH_SOURCE:-}" ] || [ ${#BASH_SOURCE[@]} -eq 0 ] || [[ "${BASH_SOURCE[0]:-}" == "-" ]]; then
+if [ -z "${BASH_SOURCE:-}" ] || [[ "${BASH_SOURCE[0]:-}" == "-" ]]; then
     RUNNING_VIA_PIPE=true
 fi
 
-# Colors (disabled if not interactive terminal)
+# -------------------------------------------------
+# Colors
+# -------------------------------------------------
 if [ -t 1 ] && [ -t 0 ]; then
     GREEN='\033[0;32m'
     RED='\033[0;31m'
     YELLOW='\033[1;33m'
     NC='\033[0m'
 else
-    GREEN=''
-    RED=''
-    YELLOW=''
-    NC=''
+    GREEN='' RED='' YELLOW='' NC=''
 fi
 
-if [ "$RUNNING_VIA_PIPE" = true ]; then
-    echo -e "${GREEN}Detected pipe execution, fetching scripts from GitHub...${NC}"
+# -------------------------------------------------
+# Ensure git is installed
+# -------------------------------------------------
+ensure_git() {
+    if command -v git >/dev/null 2>&1; then
+        return
+    fi
 
-    SCRIPT_DIR=$(mktemp -d)
+    echo -e "${YELLOW}git not found, installing...${NC}"
+
+    if command -v apt >/dev/null 2>&1; then
+        sudo apt update
+        sudo apt install -y git
+    elif command -v pacman >/dev/null 2>&1; then
+        sudo pacman -Sy --noconfirm git
+    elif command -v dnf >/dev/null 2>&1; then
+        sudo dnf install -y git
+    else
+        echo -e "${RED}No supported package manager found. Install git manually.${NC}"
+        exit 1
+    fi
+}
+
+# -------------------------------------------------
+# Prepare workspace
+# -------------------------------------------------
+if [ "$RUNNING_VIA_PIPE" = true ]; then
+    SCRIPT_DIR="$(mktemp -d)"
     trap "rm -rf $SCRIPT_DIR" EXIT
 
-    # Fetch ACCELA script
-    curl -fsSL -o "$SCRIPT_DIR/accela" "https://raw.githubusercontent.com/$GITHUB_USER/$GITHUB_REPO/main/accela"
-    chmod +x "$SCRIPT_DIR/accela"
+    cd "$SCRIPT_DIR"
 
-    # Download SLSsteam ZIP
-    echo "Downloading SLSsteam ZIP..."
-    curl -fsSL -o "$SCRIPT_DIR/SLSsteam.zip" "$SLSSTEAM_ZIP_URL"
-
-    # Unzip SLSsteam
-    unzip -q "$SCRIPT_DIR/SLSsteam.zip" -d "$SCRIPT_DIR/slssteam_dir"
-
-    # Point to setup script
-    SLSSTEAM_SCRIPT="$SCRIPT_DIR/slssteam_dir/setup-steamos.sh"
-    if [ ! -f "$SLSSTEAM_SCRIPT" ]; then
-        echo -e "${RED}Error: setup-steamos.sh not found inside ZIP${NC}"
-        exit 1
-    fi
-    chmod +x "$SLSSTEAM_SCRIPT"
-
-    # Symlink so the rest of the script can source it
-    ln -sf "$SLSSTEAM_SCRIPT" "$SCRIPT_DIR/slssteam"
-
+    echo -e "${GREEN}Fetching ACCELA repo...${NC}"
+    git clone "https://github.com/$GITHUB_USER/$GITHUB_REPO"
+    cd "$GITHUB_REPO"
 else
-    # Local execution - source from same directory
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-    if [ ! -f "$SCRIPT_DIR/accela" ]; then
-        echo "Error: accela not found in $SCRIPT_DIR"
-        exit 1
-    fi
-
-    if [ ! -f "$SCRIPT_DIR/slssteam" ]; then
-        echo "Error: slssteam (setup-steamos.sh) not found in $SCRIPT_DIR"
-        exit 1
-    fi
+    cd "$SCRIPT_DIR"
 fi
 
-# Source the scripts to load their functions
-source "$SCRIPT_DIR/accela"
-source "$SCRIPT_DIR/slssteam"
+# -------------------------------------------------
+# Load ACCELA
+# -------------------------------------------------
+if [ ! -f "accela" ]; then
+    echo -e "${RED}Error: accela not found in $PWD${NC}"
+    exit 1
+fi
 
+chmod +x accela
+source "./accela"
+
+# -------------------------------------------------
+# Clone SLSsteam repo
+# -------------------------------------------------
+ensure_git
+
+if [ ! -d "$SLS_REPO_DIR" ]; then
+    echo -e "${GREEN}Cloning SLSsteam repository...${NC}"
+    git clone "$SLS_REPO_URL"
+else
+    echo -e "${YELLOW}SLSsteam repo already exists, skipping clone.${NC}"
+fi
+
+# -------------------------------------------------
+# Run installers
+# -------------------------------------------------
 echo -e "${GREEN}=============================================="
 echo "  ENTER THE WIRED - Combo Installer"
 echo "==============================================${NC}"
 echo ""
-
-# is_steam_deck() and get_sls_install_dir() are expected to be defined in setup-steamos.sh
 
 echo "Installing ACCELA..."
 echo "----------------------------------------------"
@@ -91,44 +109,15 @@ install_accela
 echo ""
 echo "Installing SLSsteam..."
 echo "----------------------------------------------"
-install_slssteam
+
+cd "$SLS_REPO_DIR/$SLS_SUBDIR"
+
+chmod +x setup.sh
+./setup.sh
 
 echo ""
-echo "=============================================="
-echo -e "${GREEN}  ALL INSTALLATIONS COMPLETED!${NC}"
-echo "=============================================="
-echo ""
-echo "  ACCELA:  Installed at ~/.local/share/ACCELA"
-echo "  SLSsteam: Installed at $(get_sls_install_dir)"
-echo ""
-
-# Steam Deck specific message
-if is_steam_deck; then
-    echo -e "${YELLOW}  Steam Deck detected!${NC}"
-    echo ""
-    echo "  - SLSsteam patched in steam-jupiter for Gaming Mode"
-    echo "  - Use Game Mode to launch ACCELA"
-    echo "  - SLSsteam SafeMode is enabled for stability"
-    echo "  - WARNING: Steam updates will reset the patch!"
-    echo "  - Re-run this script after Steam updates"
-else
-    echo "  Launch ACCELA from your applications menu."
-fi
-
-# Bazzite specific message
-if [ -f /etc/os-release ]; then
-    source /etc/os-release
-    if [[ "$ID" == "bazzite" ]]; then
-        echo ""
-        echo -e "${YELLOW}  Bazzite detected!${NC}"
-        echo ""
-        echo "  - ACCELA should appear in your app launcher"
-        echo "  - For desktop mode, use the Applications menu"
-        echo "  - Steam Deck plugins (Decky Loader) are pre-installed"
-    fi
-fi
-
-echo ""
-echo "  To play with SLSsteam, just restart Steam."
+echo -e "${GREEN}=============================================="
+echo "  ALL INSTALLATIONS COMPLETED!"
+echo "==============================================${NC}"
 echo ""
 echo "Protocol complete. Welcome to the Wired."
