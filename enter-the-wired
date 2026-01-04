@@ -10,7 +10,8 @@ ACCELA_USER="ciscosweater"
 ACCELA_REPO="enter-the-wired"
 
 SLS_REPO_URL="https://github.com/Axolat000/enter-the-wired"
-SLS_REPO_DIR="deps/slssteam"
+SLS_PARENT_DIR="deps/slssteam"
+SLS_REPO_DIR="$SLS_PARENT_DIR/enter-the-wired"
 SLS_SUBDIR="SLSsteam-Any"
 
 # -------------------------------------------------
@@ -87,7 +88,7 @@ source "./accela"
 # Clone / mise à jour SLSsteam
 # -------------------------------------------------
 ensure_git
-mkdir -p deps
+mkdir -p "$SLS_PARENT_DIR"
 
 if [ ! -d "$SLS_REPO_DIR/.git" ]; then
     echo -e "${GREEN}Clonage du dépôt SLSsteam...${NC}"
@@ -116,7 +117,7 @@ echo "----------------------------------------------"
 cd "$SLS_REPO_DIR/$SLS_SUBDIR"
 
 if [ ! -f "setup.sh" ]; then
-    echo -e "${RED}Erreur : setup.sh introuvable dans SLSsteam-Any${NC}"
+    echo -e "${RED}Erreur : setup.sh introuvable dans $SLS_SUBDIR${NC}"
     exit 1
 fi
 
