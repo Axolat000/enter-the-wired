@@ -9,6 +9,7 @@ set -euo pipefail
 
 GITHUB_USER="ciscosweater"
 GITHUB_REPO="enter-the-wired"
+SLSSTEAM_ZIP_URL="https://github.com/Axolat000/enter-the-wired/raw/refs/heads/main/SLSsteam-Any.zip"
 
 # Detect if running via curl | bash (BASH_SOURCE empty or BASH_SOURCE[0] == "-")
 RUNNING_VIA_PIPE=false
@@ -36,11 +37,24 @@ if [ "$RUNNING_VIA_PIPE" = true ]; then
     SCRIPT_DIR=$(mktemp -d)
     trap "rm -rf $SCRIPT_DIR" EXIT
 
-    # Fetch accela and slssteam scripts
+    # Fetch accela script
     curl -fsSL -o "$SCRIPT_DIR/accela" "https://raw.githubusercontent.com/$GITHUB_USER/$GITHUB_REPO/main/accela"
-    curl -fsSL -o "$SCRIPT_DIR/slssteam" "https://raw.githubusercontent.com/$GITHUB_USER/$GITHUB_REPO/main/slssteam"
+    chmod +x "$SCRIPT_DIR/accela"
 
-    chmod +x "$SCRIPT_DIR/accela" "$SCRIPT_DIR/slssteam"
+    # Fetch SLSsteam ZIP
+    echo "Downloading SLSsteam ZIP..."
+    curl -fsSL -o "$SCRIPT_DIR/SLSsteam.zip" "$SLSSTEAM_ZIP_URL"
+
+    # Unzip SLSsteam
+    unzip -q "$SCRIPT_DIR/SLSsteam.zip" -d "$SCRIPT_DIR/slssteam_dir"
+    # Assuming the main executable/script is in the root of the ZIP
+    if [ ! -f "$SCRIPT_DIR/slssteam_dir/slssteam" ]; then
+        echo -e "${RED}Error: slssteam not found inside ZIP${NC}"
+        exit 1
+    fi
+    chmod +x "$SCRIPT_DIR/slssteam_dir/slssteam"
+    # Symlink or alias for sourcing
+    ln -sf "$SCRIPT_DIR/slssteam_dir/slssteam" "$SCRIPT_DIR/slssteam"
 else
     # Local execution - source from same directory
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
