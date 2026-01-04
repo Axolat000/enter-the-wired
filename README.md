@@ -1,4 +1,4 @@
-#Enter the Wired - Universal ACCELA & SLSsteam Installer
+# Enter the Wired - Universal ACCELA & SLSsteam Installer
 This script makes it easier to install ACCELA and SLSsteam (to play games that are not in your library).
 It detects your Linux distribution and attempts to install dependencies automatically.
 
