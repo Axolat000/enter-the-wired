@@ -31,30 +31,33 @@ else
 fi
 
 if [ "$RUNNING_VIA_PIPE" = true ]; then
-    # Running via curl | bash - need to fetch scripts from GitHub
     echo -e "${GREEN}Detected pipe execution, fetching scripts from GitHub...${NC}"
 
     SCRIPT_DIR=$(mktemp -d)
     trap "rm -rf $SCRIPT_DIR" EXIT
 
-    # Fetch accela script
+    # Fetch ACCELA script
     curl -fsSL -o "$SCRIPT_DIR/accela" "https://raw.githubusercontent.com/$GITHUB_USER/$GITHUB_REPO/main/accela"
     chmod +x "$SCRIPT_DIR/accela"
 
-    # Fetch SLSsteam ZIP
+    # Download SLSsteam ZIP
     echo "Downloading SLSsteam ZIP..."
     curl -fsSL -o "$SCRIPT_DIR/SLSsteam.zip" "$SLSSTEAM_ZIP_URL"
 
     # Unzip SLSsteam
     unzip -q "$SCRIPT_DIR/SLSsteam.zip" -d "$SCRIPT_DIR/slssteam_dir"
-    # Assuming the main executable/script is in the root of the ZIP
-    if [ ! -f "$SCRIPT_DIR/slssteam_dir/slssteam" ]; then
-        echo -e "${RED}Error: slssteam not found inside ZIP${NC}"
+
+    # Point to setup script
+    SLSSTEAM_SCRIPT="$SCRIPT_DIR/slssteam_dir/setup-steamos.sh"
+    if [ ! -f "$SLSSTEAM_SCRIPT" ]; then
+        echo -e "${RED}Error: setup-steamos.sh not found inside ZIP${NC}"
         exit 1
     fi
-    chmod +x "$SCRIPT_DIR/slssteam_dir/slssteam"
-    # Symlink or alias for sourcing
-    ln -sf "$SCRIPT_DIR/slssteam_dir/slssteam" "$SCRIPT_DIR/slssteam"
+    chmod +x "$SLSSTEAM_SCRIPT"
+
+    # Symlink so the rest of the script can source it
+    ln -sf "$SLSSTEAM_SCRIPT" "$SCRIPT_DIR/slssteam"
+
 else
     # Local execution - source from same directory
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -65,7 +68,7 @@ else
     fi
 
     if [ ! -f "$SCRIPT_DIR/slssteam" ]; then
-        echo "Error: slssteam not found in $SCRIPT_DIR"
+        echo "Error: slssteam (setup-steamos.sh) not found in $SCRIPT_DIR"
         exit 1
     fi
 fi
@@ -79,7 +82,7 @@ echo "  ENTER THE WIRED - Combo Installer"
 echo "==============================================${NC}"
 echo ""
 
-# is_steam_deck() and get_sls_install_dir() are already sourced from slssteam
+# is_steam_deck() and get_sls_install_dir() are expected to be defined in setup-steamos.sh
 
 echo "Installing ACCELA..."
 echo "----------------------------------------------"
