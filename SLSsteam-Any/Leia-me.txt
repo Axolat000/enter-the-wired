@@ -1,0 +1,15 @@
+
+#Comando para criar a senha do admin caso não tenha feito ainda.
+passwd
+
+#Comando para desabilitar a proteção do sistema contra modificações.
+sudo steamos-readonly disable
+
+#Comando para deixar o arquivo executavel.
+chmod +x setup-steamos.sh
+
+#Comandos de instalação e desinstalação
+
+./setup-steamos.sh install
+
+./setup-steamos.sh uninstall
