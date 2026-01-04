@@ -2,30 +2,22 @@
 set -euo pipefail
 
 # =================================================
-# ENTER THE WIRED — INSTALLATEUR COMBO
+# ENTER THE WIRED — INSTALLATEUR FINAL
 # ACCELA (ciscosweater) + SLSsteam (Axolat000)
+# Tout installé dans le HOME de l’utilisateur
 # =================================================
 
-ACCELA_USER="ciscosweater"
-ACCELA_REPO="enter-the-wired"
-
+ACCELA_REPO_URL="https://github.com/ciscosweater/enter-the-wired"
 SLS_REPO_URL="https://github.com/Axolat000/enter-the-wired"
-SLS_PARENT_DIR="deps/slssteam"
-SLS_REPO_DIR="$SLS_PARENT_DIR/enter-the-wired"
-SLS_SUBDIR="SLSsteam-Any"
 
-# -------------------------------------------------
-# Détection curl | bash
-# -------------------------------------------------
-RUNNING_VIA_PIPE=false
-if [ -z "${BASH_SOURCE:-}" ] || [[ "${BASH_SOURCE[0]:-}" == "-" ]]; then
-    RUNNING_VIA_PIPE=true
-fi
+ACCELA_DIR="$HOME/enter-the-wired"
+SLS_DIR="$HOME/slssteam"
+SLS_SUBDIR="SLSsteam-Any"
 
 # -------------------------------------------------
 # Couleurs
 # -------------------------------------------------
-if [ -t 1 ] && [ -t 0 ]; then
+if [ -t 1 ]; then
     GREEN='\033[0;32m'
     RED='\033[0;31m'
     YELLOW='\033[1;33m'
@@ -35,86 +27,67 @@ else
 fi
 
 # -------------------------------------------------
-# Vérification / installation de git
+# Vérifier / installer git
 # -------------------------------------------------
 ensure_git() {
     if command -v git >/dev/null 2>&1; then
         return
     fi
 
-    echo -e "${YELLOW}git non installé, installation en cours...${NC}"
+    echo -e "${YELLOW}git non installé, installation...${NC}"
 
     if command -v apt >/dev/null 2>&1; then
-        sudo apt update
-        sudo apt install -y git
+        sudo apt update && sudo apt install -y git
     elif command -v pacman >/dev/null 2>&1; then
         sudo pacman -Sy --noconfirm git
     elif command -v dnf >/dev/null 2>&1; then
         sudo dnf install -y git
     else
-        echo -e "${RED}Gestionnaire de paquets non supporté. Installe git manuellement.${NC}"
+        echo -e "${RED}Impossible d’installer git automatiquement${NC}"
         exit 1
     fi
 }
 
-# -------------------------------------------------
-# Préparation du dossier de travail
-# -------------------------------------------------
-if [ "$RUNNING_VIA_PIPE" = true ]; then
-    WORKDIR="$(mktemp -d)"
-    trap "rm -rf $WORKDIR" EXIT
-    cd "$WORKDIR"
+ensure_git
 
-    echo -e "${GREEN}Récupération du dépôt ACCELA...${NC}"
-    git clone "https://github.com/$ACCELA_USER/$ACCELA_REPO"
-    cd "$ACCELA_REPO"
+# -------------------------------------------------
+# ACCELA
+# -------------------------------------------------
+if [ ! -d "$ACCELA_DIR/.git" ]; then
+    echo -e "${GREEN}Clonage de ACCELA dans $ACCELA_DIR...${NC}"
+    git clone "$ACCELA_REPO_URL" "$ACCELA_DIR"
 else
-    WORKDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    cd "$WORKDIR"
+    echo -e "${YELLOW}ACCELA déjà présent, mise à jour...${NC}"
+    git -C "$ACCELA_DIR" pull --ff-only
 fi
 
-# -------------------------------------------------
-# Chargement ACCELA
-# -------------------------------------------------
+cd "$ACCELA_DIR"
+
 if [ ! -f "accela" ]; then
-    echo -e "${RED}Erreur : script accela introuvable.${NC}"
+    echo -e "${RED}Erreur : script accela introuvable${NC}"
     exit 1
 fi
 
 chmod +x accela
-source "./accela"
+source ./accela
 
-# -------------------------------------------------
-# Clone / mise à jour SLSsteam
-# -------------------------------------------------
-ensure_git
-mkdir -p "$SLS_PARENT_DIR"
-
-if [ ! -d "$SLS_REPO_DIR/.git" ]; then
-    echo -e "${GREEN}Clonage du dépôt SLSsteam...${NC}"
-    git clone "$SLS_REPO_URL" "$SLS_REPO_DIR"
-else
-    echo -e "${YELLOW}Dépôt SLSsteam déjà présent, mise à jour...${NC}"
-    git -C "$SLS_REPO_DIR" pull --ff-only
-fi
-
-# -------------------------------------------------
-# Installation
-# -------------------------------------------------
-echo -e "${GREEN}=============================================="
-echo "  ENTER THE WIRED — INSTALLATEUR"
-echo "==============================================${NC}"
 echo ""
-
 echo "📦 Installation de ACCELA..."
-echo "----------------------------------------------"
 install_accela
 
-echo ""
-echo "🎮 Installation de SLSsteam..."
-echo "----------------------------------------------"
+# -------------------------------------------------
+# SLSsteam
+# -------------------------------------------------
+if [ ! -d "$SLS_DIR/.git" ]; then
+    echo ""
+    echo -e "${GREEN}Clonage de SLSsteam dans $SLS_DIR...${NC}"
+    git clone "$SLS_REPO_URL" "$SLS_DIR"
+else
+    echo -e "${YELLOW}SLSsteam déjà présent, mise à jour...${NC}"
+    git -C "$SLS_DIR" pull --ff-only
+fi
 
-cd "$SLS_REPO_DIR/$SLS_SUBDIR"
+cd "$SLS_DIR/$SLS_SUBDIR"
 
 if [ ! -f "setup.sh" ]; then
     echo -e "${RED}Erreur : setup.sh introuvable dans $SLS_SUBDIR${NC}"
@@ -122,6 +95,9 @@ if [ ! -f "setup.sh" ]; then
 fi
 
 chmod +x setup.sh
+
+echo ""
+echo "🎮 Installation de SLSsteam..."
 ./setup.sh install
 
 # -------------------------------------------------
@@ -129,15 +105,13 @@ chmod +x setup.sh
 # -------------------------------------------------
 echo ""
 echo -e "${GREEN}=============================================="
-echo "  INSTALLATION TERMINÉE AVEC SUCCÈS"
+echo " INSTALLATION TERMINÉE AVEC SUCCÈS"
 echo "==============================================${NC}"
 echo ""
-
-echo "📍 Résumé :"
-echo " • ACCELA installé dans : ~/.local/share/ACCELA"
-echo " • SLSsteam installé dans : ~/.local/share/SLSsteam"
+echo "📍 Emplacements :"
+echo " • ACCELA   : $ACCELA_DIR"
+echo " • SLSsteam : $SLS_DIR"
 echo ""
-
-echo "🎮 Redémarre Steam pour activer SLSsteam."
+echo "🔄 Redémarre Steam pour activer SLSsteam"
 echo ""
-echo "Protocole terminé. Bienvenue dans le Wired."
+echo "Bienvenue dans le Wired."
